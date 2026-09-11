@@ -1,0 +1,6 @@
+.DS_Store
+.sites-runtime/
+*.log
+.env
+.env.*
+!.env.example
