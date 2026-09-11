@@ -93,7 +93,7 @@ export async function startVideoGeneration({ apiKey, model, prompt, outfit, refe
       }],
       parameters: {
         aspectRatio,
-        durationSeconds: "8",
+        durationSeconds: 8,
         resolution,
         numberOfVideos: 1,
         seed: Number(seed),
