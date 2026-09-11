@@ -4,7 +4,7 @@ import {
   getVideoUri,
   imageSourceToInlineData,
   startVideoGeneration,
-} from "./services/gemini.js";
+} from "./services/gemini.js?v=2";
 
 const KEY_NAME = "rakooning.geminiApiKey";
 const EXAMPLE = "월요일 아침, 라쿤 신입사원이 양손으로 커다란 아이스커피를 안고 사무실에 들어오다가 팀장과 눈이 마주쳐 어색하게 꾸벅 인사해요. 낮은 카메라가 옆에서 천천히 따라가요.";

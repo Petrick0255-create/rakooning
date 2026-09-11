@@ -23,16 +23,40 @@ export async function imageSourceToInlineData(source) {
     throw new Error("기준 이미지는 20MB보다 작아야 해요.");
   }
 
+  let uploadBlob = blob;
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const maxEdge = 1024;
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d", { alpha: false });
+    context.fillStyle = "#d8effb";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    uploadBlob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (compressed) => compressed ? resolve(compressed) : reject(new Error("이미지 압축에 실패했어요.")),
+        "image/jpeg",
+        0.88,
+      );
+    });
+  } catch {
+    // 압축을 지원하지 않는 브라우저에서는 원본을 그대로 사용합니다.
+  }
+
   const dataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
     reader.onerror = () => reject(new Error("이미지를 읽지 못했어요."));
-    reader.readAsDataURL(blob);
+    reader.readAsDataURL(uploadBlob);
   });
 
   const [meta, data] = String(dataUrl).split(",");
   return {
-    mimeType: meta.match(/^data:(.*?);base64$/)?.[1] || blob.type || "image/png",
+    mimeType: meta.match(/^data:(.*?);base64$/)?.[1] || uploadBlob.type || "image/jpeg",
     data,
   };
 }
@@ -59,7 +83,10 @@ export async function startVideoGeneration({ apiKey, model, prompt, outfit, refe
       instances: [{
         prompt: buildLockedPrompt(prompt, outfit),
         referenceImages: [{
-          image: { inlineData: reference },
+          image: {
+            bytesBase64Encoded: reference.data,
+            mimeType: reference.mimeType,
+          },
           referenceType: "asset",
         }],
       }],
