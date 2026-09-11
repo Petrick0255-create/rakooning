@@ -4,7 +4,7 @@ import {
   getVideoUri,
   imageSourceToInlineData,
   startVideoGeneration,
-} from "./services/gemini.js?v=2";
+} from "./services/gemini.js?v=3";
 
 const KEY_NAME = "rakooning.geminiApiKey";
 const EXAMPLE = "월요일 아침, 라쿤 신입사원이 양손으로 커다란 아이스커피를 안고 사무실에 들어오다가 팀장과 눈이 마주쳐 어색하게 꾸벅 인사해요. 낮은 카메라가 옆에서 천천히 따라가요.";
@@ -156,7 +156,10 @@ async function generate(event) {
     const outfit = elements.outfit.value === "custom"
       ? `Dress the raccoon in this user-requested outfit while preserving the orange neckerchief when possible: ${elements.customOutfit.value.trim() || "the orange neckerchief only"}.`
       : OUTFITS[elements.outfit.value];
-    const reference = await imageSourceToInlineData(customReference || "./assets/raccoon-reference.png");
+    const reference = await imageSourceToInlineData(
+      customReference || "./assets/raccoon-reference.png",
+      elements.aspectRatio.value,
+    );
     elements.loadingTitle.textContent = "라쿤이 콘티를 확인하고 있어요";
     elements.loadingDetail.textContent = "같은 얼굴과 옷을 고정하는 중이에요.";
     const operation = await startVideoGeneration({

@@ -13,7 +13,7 @@ async function readError(response) {
   return error;
 }
 
-export async function imageSourceToInlineData(source) {
+export async function imageSourceToInlineData(source, aspectRatio = "9:16") {
   const blob = source instanceof Blob ? source : await fetch(source).then((response) => {
     if (!response.ok) throw new Error("기준 이미지를 불러오지 못했어요.");
     return response.blob();
@@ -26,15 +26,19 @@ export async function imageSourceToInlineData(source) {
   let uploadBlob = blob;
   try {
     const bitmap = await createImageBitmap(blob);
-    const maxEdge = 1024;
-    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const isPortrait = aspectRatio === "9:16";
+    canvas.width = isPortrait ? 576 : 1024;
+    canvas.height = isPortrait ? 1024 : 576;
     const context = canvas.getContext("2d", { alpha: false });
     context.fillStyle = "#d8effb";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const scale = Math.min(canvas.width / bitmap.width, canvas.height / bitmap.height);
+    const width = Math.round(bitmap.width * scale);
+    const height = Math.round(bitmap.height * scale);
+    const x = Math.round((canvas.width - width) / 2);
+    const y = Math.round((canvas.height - height) / 2);
+    context.drawImage(bitmap, x, y, width, height);
     bitmap.close();
     uploadBlob = await new Promise((resolve, reject) => {
       canvas.toBlob(
@@ -82,13 +86,10 @@ export async function startVideoGeneration({ apiKey, model, prompt, outfit, refe
     body: JSON.stringify({
       instances: [{
         prompt: buildLockedPrompt(prompt, outfit),
-        referenceImages: [{
-          image: {
-            bytesBase64Encoded: reference.data,
-            mimeType: reference.mimeType,
-          },
-          referenceType: "asset",
-        }],
+        image: {
+          bytesBase64Encoded: reference.data,
+          mimeType: reference.mimeType,
+        },
       }],
       parameters: {
         aspectRatio,
