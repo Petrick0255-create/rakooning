@@ -87,13 +87,14 @@ export async function startVideoGeneration({ apiKey, model, prompt, outfit, refe
       instances: [{
         prompt: buildLockedPrompt(prompt, outfit),
         image: {
-          bytesBase64Encoded: reference.data,
-          mimeType: reference.mimeType,
+          inlineData: {
+            data: reference.data,
+            mimeType: reference.mimeType,
+          },
         },
       }],
       parameters: {
         aspectRatio,
-        durationSeconds: 8,
         resolution,
         numberOfVideos: 1,
         seed: Number(seed),
