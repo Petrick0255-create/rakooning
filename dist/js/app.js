@@ -4,7 +4,7 @@ import {
   getVideoUri,
   imageSourceToInlineData,
   startVideoGeneration,
-} from "./services/gemini.js?v=5";
+} from "./services/gemini.js?v=6";
 
 const KEY_NAME = "rakooning.geminiApiKey";
 const EXAMPLE = "월요일 아침, 라쿤 신입사원이 양손으로 커다란 아이스커피를 안고 사무실에 들어오다가 팀장과 눈이 마주쳐 어색하게 꾸벅 인사해요. 낮은 카메라가 옆에서 천천히 따라가요.";
@@ -30,7 +30,6 @@ const elements = {
   customOutfit: $("#customOutfit"),
   aspectRatio: $("#aspectRatio"),
   resolution: $("#resolution"),
-  seed: $("#seed"),
   model: $("#model"),
   generateButton: $("#generateButton"),
   previewStage: $("#previewStage"),
@@ -58,11 +57,11 @@ let videoObjectUrl = "";
 let activeController = null;
 let toastTimer = 0;
 
-function showToast(message) {
+function showToast(message, duration = 2800) {
   elements.toast.textContent = message;
   elements.toast.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => elements.toast.classList.remove("show"), 2800);
+  toastTimer = setTimeout(() => elements.toast.classList.remove("show"), duration);
 }
 
 function getApiKey() {
@@ -170,7 +169,6 @@ async function generate(event) {
       reference,
       aspectRatio: elements.aspectRatio.value,
       resolution: elements.resolution.value,
-      seed: elements.seed.value,
       signal,
     });
 
@@ -198,7 +196,8 @@ async function generate(event) {
     await elements.resultVideo.play().catch(() => {});
   } catch (error) {
     if (error?.name !== "AbortError") {
-      showToast(friendlyError(error));
+      console.error("Gemini video generation failed:", error);
+      showToast(friendlyError(error), 12_000);
       setStatus("", "오류");
     }
     elements.loadingState.hidden = true;

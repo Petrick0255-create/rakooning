@@ -75,7 +75,7 @@ export function buildLockedPrompt(userPrompt, outfit) {
   ].join("\n\n");
 }
 
-export async function startVideoGeneration({ apiKey, model, prompt, outfit, reference, aspectRatio, resolution, seed, signal }) {
+export async function startVideoGeneration({ apiKey, model, prompt, outfit, reference, aspectRatio, resolution, signal }) {
   const response = await fetch(`${API_ROOT}/models/${encodeURIComponent(model)}:predictLongRunning`, {
     method: "POST",
     signal,
@@ -87,17 +87,15 @@ export async function startVideoGeneration({ apiKey, model, prompt, outfit, refe
       instances: [{
         prompt: buildLockedPrompt(prompt, outfit),
         image: {
-          inlineData: {
-            data: reference.data,
-            mimeType: reference.mimeType,
-          },
+          bytesBase64Encoded: reference.data,
+          mimeType: reference.mimeType,
         },
       }],
       parameters: {
+        sampleCount: 1,
+        durationSeconds: 8,
         aspectRatio,
         resolution,
-        numberOfVideos: 1,
-        seed: Number(seed),
       },
     }),
   });
