@@ -4,9 +4,13 @@ import {
   getVideoUri,
   imageSourceToInlineData,
   startVideoGeneration,
-} from "./services/gemini.js?v=6";
+} from "./services/gemini.js?v=7";
+import { listVoices, synthesizeVoice } from "./services/typecast.js?v=7";
+import { getMediaDuration, mixVideoAndVoice } from "./services/media.js?v=7";
 
-const KEY_NAME = "rakooning.geminiApiKey";
+const GEMINI_KEY_NAME = "rakooning.geminiApiKey";
+const TYPECAST_KEY_NAME = "rakooning.typecastApiKey";
+const TYPECAST_VOICE_NAME = "rakooning.typecastVoiceId";
 const EXAMPLE = "월요일 아침, 라쿤 신입사원이 양손으로 커다란 아이스커피를 안고 사무실에 들어오다가 팀장과 눈이 마주쳐 어색하게 꾸벅 인사해요. 낮은 카메라가 옆에서 천천히 따라가요.";
 const MAX_WAIT_MS = 8 * 60 * 1000;
 const POLL_MS = 10_000;
@@ -46,15 +50,31 @@ const elements = {
   settingsDialog: $("#settingsDialog"),
   openSettings: $("#openSettings"),
   apiKey: $("#apiKey"),
+  typecastApiKey: $("#typecastApiKey"),
   toggleKey: $("#toggleKey"),
+  toggleTypecastKey: $("#toggleTypecastKey"),
   clearKey: $("#clearKey"),
   saveKey: $("#saveKey"),
+  voiceScript: $("#voiceScript"),
+  voiceCount: $("#voiceCount"),
+  voiceSelect: $("#voiceSelect"),
+  voiceEmotion: $("#voiceEmotion"),
+  voiceTempo: $("#voiceTempo"),
+  loadVoices: $("#loadVoices"),
+  generateVoice: $("#generateVoice"),
+  voicePreview: $("#voicePreview"),
+  voiceStatus: $("#voiceStatus"),
+  combinedDownload: $("#combinedDownload"),
   toast: $("#toast"),
 };
 
 let customReference = null;
 let videoObjectUrl = "";
+let voiceObjectUrl = "";
+let combinedObjectUrl = "";
+let generatedVideoBlob = null;
 let activeController = null;
+let voiceController = null;
 let toastTimer = 0;
 
 function showToast(message, duration = 2800) {
@@ -65,11 +85,16 @@ function showToast(message, duration = 2800) {
 }
 
 function getApiKey() {
-  return localStorage.getItem(KEY_NAME)?.trim() || "";
+  return localStorage.getItem(GEMINI_KEY_NAME)?.trim() || "";
+}
+
+function getTypecastApiKey() {
+  return localStorage.getItem(TYPECAST_KEY_NAME)?.trim() || "";
 }
 
 function openSettings() {
   elements.apiKey.value = getApiKey();
+  elements.typecastApiKey.value = getTypecastApiKey();
   elements.settingsDialog.showModal();
   setTimeout(() => elements.apiKey.focus(), 30);
 }
@@ -81,9 +106,16 @@ function setStatus(kind, text) {
 
 function resetResult() {
   activeController?.abort();
+  voiceController?.abort();
   activeController = null;
+  voiceController = null;
   if (videoObjectUrl) URL.revokeObjectURL(videoObjectUrl);
+  if (voiceObjectUrl) URL.revokeObjectURL(voiceObjectUrl);
+  if (combinedObjectUrl) URL.revokeObjectURL(combinedObjectUrl);
   videoObjectUrl = "";
+  voiceObjectUrl = "";
+  combinedObjectUrl = "";
+  generatedVideoBlob = null;
   elements.resultVideo.removeAttribute("src");
   elements.resultVideo.hidden = true;
   elements.previewPoster.hidden = false;
@@ -93,7 +125,29 @@ function resetResult() {
   elements.downloadButton.classList.add("disabled");
   elements.downloadButton.setAttribute("aria-disabled", "true");
   elements.generateButton.disabled = false;
+  elements.generateVoice.disabled = true;
+  elements.voicePreview.hidden = true;
+  elements.voicePreview.removeAttribute("src");
+  elements.combinedDownload.removeAttribute("href");
+  elements.combinedDownload.classList.add("disabled");
+  elements.combinedDownload.setAttribute("aria-disabled", "true");
+  elements.voiceStatus.textContent = "먼저 영상을 만들어 주세요.";
   setStatus("", "준비됨");
+}
+
+function resetVoiceOutput() {
+  voiceController?.abort();
+  voiceController = null;
+  if (voiceObjectUrl) URL.revokeObjectURL(voiceObjectUrl);
+  if (combinedObjectUrl) URL.revokeObjectURL(combinedObjectUrl);
+  voiceObjectUrl = "";
+  combinedObjectUrl = "";
+  elements.voicePreview.pause();
+  elements.voicePreview.removeAttribute("src");
+  elements.voicePreview.hidden = true;
+  elements.combinedDownload.removeAttribute("href");
+  elements.combinedDownload.classList.add("disabled");
+  elements.combinedDownload.setAttribute("aria-disabled", "true");
 }
 
 function applyAspectRatio() {
@@ -181,9 +235,12 @@ async function generate(event) {
     elements.loadingTitle.textContent = "완성된 영상을 가져오고 있어요";
     elements.progressBar.style.width = "96%";
     const blob = await downloadVideo({ apiKey, uri, signal });
+    generatedVideoBlob = blob;
+    resetVoiceOutput();
     if (videoObjectUrl) URL.revokeObjectURL(videoObjectUrl);
     videoObjectUrl = URL.createObjectURL(blob);
     elements.resultVideo.src = videoObjectUrl;
+    elements.resultVideo.volume = 0.08;
     elements.resultVideo.hidden = false;
     elements.previewPoster.hidden = true;
     elements.loadingState.hidden = true;
@@ -191,6 +248,8 @@ async function generate(event) {
     elements.downloadButton.classList.remove("disabled");
     elements.downloadButton.removeAttribute("aria-disabled");
     elements.progressBar.style.width = "100%";
+    elements.generateVoice.disabled = false;
+    elements.voiceStatus.textContent = "영상이 준비됐어요. 대본을 입력해 음성을 입혀 보세요.";
     setStatus("done", "완성");
     showToast("라쿤 영상이 완성됐어요!");
     await elements.resultVideo.play().catch(() => {});
@@ -205,6 +264,131 @@ async function generate(event) {
   } finally {
     elements.generateButton.disabled = false;
     activeController = null;
+  }
+}
+
+async function loadTypecastVoices() {
+  const apiKey = getTypecastApiKey();
+  if (!apiKey) {
+    showToast("API 설정에서 Typecast API 키를 먼저 저장해 주세요.", 6000);
+    openSettings();
+    return [];
+  }
+  elements.loadVoices.disabled = true;
+  elements.loadVoices.textContent = "불러오는 중…";
+  elements.voiceStatus.textContent = "Typecast 목소리 목록을 불러오고 있어요.";
+  try {
+    const voices = await listVoices({ apiKey });
+    if (!voices.length) throw new Error("사용 가능한 목소리를 찾지 못했어요.");
+    voices.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+    const savedVoice = localStorage.getItem(TYPECAST_VOICE_NAME) || "";
+    elements.voiceSelect.replaceChildren(...voices.map((voice) => {
+      const option = document.createElement("option");
+      option.value = voice.id;
+      option.textContent = `${voice.name}${voice.gender ? ` · ${voice.gender}` : ""}`;
+      option.selected = voice.id === savedVoice;
+      return option;
+    }));
+    elements.voiceSelect.disabled = false;
+    if (!elements.voiceSelect.value) elements.voiceSelect.selectedIndex = 0;
+    localStorage.setItem(TYPECAST_VOICE_NAME, elements.voiceSelect.value);
+    elements.voiceStatus.textContent = `${voices.length}개의 목소리를 불러왔어요.`;
+    return voices;
+  } catch (error) {
+    console.error("Typecast voice list failed:", error);
+    const message = error?.status === 401
+      ? "Typecast API 키를 확인해 주세요."
+      : error?.message || "목소리를 불러오지 못했어요.";
+    elements.voiceStatus.textContent = message;
+    showToast(message, 8000);
+    return [];
+  } finally {
+    elements.loadVoices.disabled = false;
+    elements.loadVoices.textContent = "목소리 불러오기";
+  }
+}
+
+async function generateVoiceover() {
+  if (!generatedVideoBlob) {
+    showToast("먼저 라쿤 영상을 만들어 주세요.");
+    return;
+  }
+  const apiKey = getTypecastApiKey();
+  if (!apiKey) {
+    showToast("API 설정에서 Typecast API 키를 먼저 저장해 주세요.", 6000);
+    openSettings();
+    return;
+  }
+  const text = elements.voiceScript.value.trim();
+  if (!text) {
+    showToast("영상에 넣을 대본을 입력해 주세요.");
+    elements.voiceScript.focus();
+    return;
+  }
+  if (!elements.voiceSelect.value) {
+    const voices = await loadTypecastVoices();
+    if (!voices.length) return;
+  }
+
+  resetVoiceOutput();
+  voiceController = new AbortController();
+  const { signal } = voiceController;
+  elements.generateVoice.disabled = true;
+  elements.loadVoices.disabled = true;
+  elements.voiceStatus.textContent = "Typecast가 대본을 읽고 있어요.";
+  try {
+    const voiceBlob = await synthesizeVoice({
+      apiKey,
+      voiceId: elements.voiceSelect.value,
+      text,
+      emotion: elements.voiceEmotion.value,
+      tempo: elements.voiceTempo.value,
+      signal,
+    });
+    voiceObjectUrl = URL.createObjectURL(voiceBlob);
+    elements.voicePreview.src = voiceObjectUrl;
+    elements.voicePreview.hidden = false;
+    const [voiceDuration, videoDuration] = await Promise.all([
+      getMediaDuration(voiceBlob),
+      getMediaDuration(generatedVideoBlob, "video"),
+    ]);
+    const trimmed = voiceDuration > videoDuration + 0.15;
+    elements.voiceStatus.textContent = trimmed
+      ? `음성이 ${voiceDuration.toFixed(1)}초라 영상 끝에서 잘려요. 대본을 줄이거나 속도를 높여 주세요.`
+      : `음성 ${voiceDuration.toFixed(1)}초 · 영상에 합치는 중 0%`;
+
+    const combinedBlob = await mixVideoAndVoice({
+      videoBlob: generatedVideoBlob,
+      voiceBlob,
+      backgroundVolume: 0.08,
+      onProgress(progress) {
+        elements.voiceStatus.textContent = `배경음 8% + 음성 합치는 중 ${progress}%`;
+      },
+    });
+    combinedObjectUrl = URL.createObjectURL(combinedBlob);
+    elements.combinedDownload.href = combinedObjectUrl;
+    elements.combinedDownload.classList.remove("disabled");
+    elements.combinedDownload.removeAttribute("aria-disabled");
+    elements.resultVideo.src = combinedObjectUrl;
+    elements.resultVideo.volume = 1;
+    elements.voiceStatus.textContent = trimmed
+      ? "합성 완료 · 긴 음성의 뒷부분은 영상 길이에 맞춰 잘렸어요."
+      : "합성 완료 · 배경음 8%, Typecast 음성 100%";
+    showToast("Typecast 음성을 영상에 입혔어요!");
+    await elements.resultVideo.play().catch(() => {});
+  } catch (error) {
+    if (error?.name !== "AbortError") {
+      console.error("Typecast voice generation failed:", error);
+      const message = error?.status === 401
+        ? "Typecast API 키를 확인해 주세요."
+        : error?.message || "음성을 만들지 못했어요.";
+      elements.voiceStatus.textContent = message;
+      showToast(message, 12_000);
+    }
+  } finally {
+    elements.generateVoice.disabled = !generatedVideoBlob;
+    elements.loadVoices.disabled = false;
+    voiceController = null;
   }
 }
 
@@ -238,6 +422,14 @@ elements.outfit.addEventListener("change", () => {
 });
 elements.form.addEventListener("submit", generate);
 elements.openSettings.addEventListener("click", openSettings);
+elements.voiceScript.addEventListener("input", () => {
+  elements.voiceCount.textContent = `${elements.voiceScript.value.length} / 2000`;
+});
+elements.voiceSelect.addEventListener("change", () => {
+  if (elements.voiceSelect.value) localStorage.setItem(TYPECAST_VOICE_NAME, elements.voiceSelect.value);
+});
+elements.loadVoices.addEventListener("click", loadTypecastVoices);
+elements.generateVoice.addEventListener("click", generateVoiceover);
 elements.newScene.addEventListener("click", () => {
   resetResult();
   elements.prompt.value = "";
@@ -249,21 +441,33 @@ elements.toggleKey.addEventListener("click", () => {
   elements.apiKey.type = visible ? "password" : "text";
   elements.toggleKey.textContent = visible ? "보기" : "숨기기";
 });
+elements.toggleTypecastKey.addEventListener("click", () => {
+  const visible = elements.typecastApiKey.type === "text";
+  elements.typecastApiKey.type = visible ? "password" : "text";
+  elements.toggleTypecastKey.textContent = visible ? "보기" : "숨기기";
+});
 elements.saveKey.addEventListener("click", (event) => {
   event.preventDefault();
-  const value = elements.apiKey.value.trim();
-  if (!value) {
-    showToast("API 키를 입력해 주세요.");
+  const geminiValue = elements.apiKey.value.trim();
+  const typecastValue = elements.typecastApiKey.value.trim();
+  if (!geminiValue && !typecastValue) {
+    showToast("Gemini 또는 Typecast API 키를 입력해 주세요.");
     return;
   }
-  localStorage.setItem(KEY_NAME, value);
+  if (geminiValue) localStorage.setItem(GEMINI_KEY_NAME, geminiValue);
+  if (typecastValue) localStorage.setItem(TYPECAST_KEY_NAME, typecastValue);
   elements.settingsDialog.close();
-  showToast("이 브라우저에 API 키를 저장했어요.");
+  showToast("API 키를 이 브라우저에 저장했어요.");
 });
 elements.clearKey.addEventListener("click", () => {
-  localStorage.removeItem(KEY_NAME);
+  localStorage.removeItem(GEMINI_KEY_NAME);
+  localStorage.removeItem(TYPECAST_KEY_NAME);
+  localStorage.removeItem(TYPECAST_VOICE_NAME);
   elements.apiKey.value = "";
-  showToast("저장된 API 키를 지웠어요.");
+  elements.typecastApiKey.value = "";
+  elements.voiceSelect.replaceChildren(new Option("API 키 저장 후 불러오기", ""));
+  elements.voiceSelect.disabled = true;
+  showToast("저장된 API 키를 모두 지웠어요.");
 });
 
 function registerWebMcpTool() {

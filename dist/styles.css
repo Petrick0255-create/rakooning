@@ -97,7 +97,7 @@ select:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgb
 .button:disabled, .button.disabled { opacity: .44; cursor: not-allowed; pointer-events: none; }
 .sparkle { font-size: 1.28rem; }
 
-.result-panel { background: #1e3448; color: white; position: sticky; top: 98px; }
+.result-panel { background: #1e3448; color: white; }
 .result-panel .eyebrow { color: #7dcaf0; }
 .result-panel .status-badge { background: rgba(255,255,255,.1); color: #c8d8e3; }
 .result-panel .status-badge.active { background: rgba(237,116,54,.22); color: #ffc09e; }
@@ -118,11 +118,30 @@ select:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgb
 @keyframes spin { to { transform: rotate(360deg); } }
 .result-actions { display: grid; grid-template-columns: 1.5fr 1fr; gap: 10px; margin-top: 15px; }
 .result-actions .button { background: rgba(255,255,255,.1); color: white; }
-.voice-card { display: grid; grid-template-columns: 42px 1fr auto; gap: 13px; align-items: start; margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.1); }
+.voice-card { display: grid; gap: 12px; margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255,255,255,.1); }
+.voice-heading { display: grid; grid-template-columns: 42px 1fr auto; gap: 13px; align-items: start; }
 .voice-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: rgba(125,202,240,.13); color: #86d2f5; font-size: 1.25rem; }
-.voice-card strong { font-size: .88rem; }
+.voice-card strong { display: block; font-size: .92rem; }
 .voice-card p { margin: 5px 0 0; color: #aebfca; font-size: .77rem; line-height: 1.55; }
 .coming-badge { padding: 6px 9px; color: #9fb1be; background: rgba(255,255,255,.07); }
+.coming-badge.ready { color: #9de0c0; background: rgba(72,165,122,.16); }
+.voice-script-label { margin: 4px 0 -4px; color: #dbe7ee; font-size: .78rem; font-weight: 800; }
+.voice-script { min-height: 78px; resize: vertical; border: 1px solid rgba(255,255,255,.13); border-radius: 13px; padding: 11px 12px; background: rgba(255,255,255,.07); color: white; font-size: .86rem; line-height: 1.55; }
+.voice-script::placeholder { color: #8fa4b3; }
+.voice-script:focus { border-color: #7dcaf0; box-shadow: 0 0 0 3px rgba(125,202,240,.12); }
+.voice-meta { display: flex; justify-content: space-between; gap: 10px; color: #8299a9; font-size: .68rem; }
+.voice-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+.voice-controls label { min-width: 0; }
+.voice-controls label > span { display: block; margin-bottom: 5px; color: #9fb3c1; font-size: .69rem; font-weight: 750; }
+.voice-controls select { height: 39px; border-color: rgba(255,255,255,.13); border-radius: 11px; padding: 0 10px; background: #294156; color: white; font-size: .75rem; }
+.voice-controls label:first-child { grid-column: 1 / 2; }
+.voice-load { align-self: end; min-height: 39px; border: 1px solid rgba(255,255,255,.13); border-radius: 11px; background: rgba(255,255,255,.08); color: white; font-size: .73rem; }
+.voice-preview { width: 100%; height: 40px; }
+.voice-status { min-height: 18px; margin: 0 !important; color: #9fb3c1 !important; }
+.voice-generate, .voice-download { width: 100%; min-height: 44px; }
+.voice-generate { background: #66bde9; color: #132b3d; }
+.voice-download { background: rgba(72,165,122,.2); color: #a8e6c7; }
+.dialog-key-field { display: block; margin-top: 17px; }
 
 .settings-dialog { width: min(520px, calc(100% - 28px)); border: 0; padding: 0; border-radius: 24px; box-shadow: 0 35px 90px rgba(19,43,62,.35); }
 .settings-dialog::backdrop { background: rgba(16,36,52,.58); backdrop-filter: blur(5px); }
@@ -154,8 +173,10 @@ select:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 4px rgb
   .control-grid, .advanced-body { grid-template-columns: 1fr; }
   .reference-info span { max-width: 150px; }
   .dialog-actions { grid-template-columns: 1fr; }
-  .voice-card { grid-template-columns: 38px 1fr; }
+  .voice-heading { grid-template-columns: 38px 1fr; }
   .coming-badge { display: none; }
+  .voice-controls { grid-template-columns: 1fr; }
+  .voice-controls label:first-child { grid-column: auto; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }

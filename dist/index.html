@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="같은 캐릭터와 그림체로 짧은 라쿤 영상을 만드는 개인용 스튜디오" />
+    <meta name="description" content="같은 캐릭터와 그림체로 짧은 라쿤 영상을 만들고 Typecast 음성을 입히는 개인용 스튜디오" />
     <meta name="color-scheme" content="light" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com https://*.googleapis.com; img-src 'self' data: blob:; media-src 'self' blob: https://*.googleapis.com; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https://generativelanguage.googleapis.com https://*.googleapis.com https://api.typecast.ai; img-src 'self' data: blob:; media-src 'self' blob: https://*.googleapis.com; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'" />
     <title>라쿠닝 — 나만의 라쿤 영상 스튜디오</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%231a2c40'/%3E%3Cpath d='M13 24 5 13l17 5M51 24l8-11-17 5' fill='%23b9c5cf'/%3E%3Cellipse cx='32' cy='34' rx='23' ry='21' fill='%23d9e0e5'/%3E%3Cpath d='M11 31c7-10 15-11 21-2 6-9 14-8 21 2-7 9-15 10-21 3-6 7-14 6-21-3Z' fill='%23374451'/%3E%3Ccircle cx='23' cy='31' r='4' fill='%23fff'/%3E%3Ccircle cx='41' cy='31' r='4' fill='%23fff'/%3E%3Cpath d='m27 40 5-3 5 3-5 5Z' fill='%231a2c40'/%3E%3Cpath d='M22 50h20l-10 9Z' fill='%23e76f32'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=7" />
   </head>
   <body>
     <header class="topbar">
@@ -135,13 +135,50 @@
           <button class="button button-secondary" id="newScene" type="button">새 장면</button>
         </div>
 
-        <aside class="voice-card" aria-label="Typecast 음성 기능 안내">
-          <span class="voice-icon" aria-hidden="true">♪</span>
-          <div>
-            <strong>대본 음성은 다음 단계에서</strong>
-            <p>Typecast API 연결 자리를 미리 분리해뒀어요. 영상 기능을 먼저 완성한 뒤 자연스럽게 추가할 수 있어요.</p>
+        <aside class="voice-card" aria-labelledby="voiceTitle">
+          <div class="voice-heading">
+            <span class="voice-icon" aria-hidden="true">♪</span>
+            <div>
+              <strong id="voiceTitle">Typecast 음성 입히기</strong>
+              <p>영상이 완성된 뒤 짧은 대본을 입력하세요. 원본 소리는 8%로 낮추고 음성을 또렷하게 합쳐요.</p>
+            </div>
+            <span class="coming-badge ready">사용 가능</span>
           </div>
-          <span class="coming-badge">준비 중</span>
+          <label class="voice-script-label" for="voiceScript">8초 대본</label>
+          <textarea id="voiceScript" class="voice-script" rows="3" maxlength="2000" placeholder="예: 출근은 했는데, 제 정신은 아직 집에 있어요."></textarea>
+          <div class="voice-meta"><span id="voiceCount">0 / 2000</span><span>짧은 영상은 35자 안팎을 권장해요.</span></div>
+          <div class="voice-controls">
+            <label>
+              <span>목소리</span>
+              <select id="voiceSelect" disabled>
+                <option value="">API 키 저장 후 불러오기</option>
+              </select>
+            </label>
+            <button class="button voice-load" id="loadVoices" type="button">목소리 불러오기</button>
+            <label>
+              <span>감정</span>
+              <select id="voiceEmotion">
+                <option value="smart">내용에 맞게 자동</option>
+                <option value="normal">차분하게</option>
+                <option value="happy">기쁘게</option>
+                <option value="sad">슬프게</option>
+                <option value="angry">화나게</option>
+              </select>
+            </label>
+            <label>
+              <span>말하기 속도</span>
+              <select id="voiceTempo">
+                <option value="0.9">느리게</option>
+                <option value="1" selected>보통</option>
+                <option value="1.15">조금 빠르게</option>
+                <option value="1.3">빠르게</option>
+              </select>
+            </label>
+          </div>
+          <audio id="voicePreview" class="voice-preview" controls hidden></audio>
+          <p class="voice-status" id="voiceStatus">먼저 영상을 만들어 주세요.</p>
+          <button class="button voice-generate" id="generateVoice" type="button" disabled>음성 만들고 영상에 입히기</button>
+          <a class="button voice-download disabled" id="combinedDownload" download="rakooning-with-voice.webm" aria-disabled="true">음성 포함 영상 저장</a>
         </aside>
       </section>
     </main>
@@ -151,11 +188,11 @@
         <div class="dialog-header">
           <div>
             <p class="eyebrow">PRIVATE SETUP</p>
-            <h2>Gemini API 연결</h2>
+            <h2>API 연결</h2>
           </div>
           <button class="close-button" value="cancel" aria-label="닫기">×</button>
         </div>
-        <p class="dialog-copy">키는 이 브라우저의 로컬 저장소에만 보관되고 GitHub 코드에는 포함되지 않아요. 요청할 때는 Google Gemini API로 직접 전송됩니다.</p>
+        <p class="dialog-copy">키는 이 브라우저의 로컬 저장소에만 보관되고 GitHub 코드에는 포함되지 않아요. 사용할 때만 각 API로 직접 전송됩니다.</p>
         <label>
           <span class="field-label">Gemini API 키</span>
           <div class="key-input-wrap">
@@ -163,18 +200,25 @@
             <button id="toggleKey" type="button" aria-label="API 키 표시 전환">보기</button>
           </div>
         </label>
+        <label class="dialog-key-field">
+          <span class="field-label">Typecast API 키</span>
+          <div class="key-input-wrap">
+            <input id="typecastApiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Typecast API 키" />
+            <button id="toggleTypecastKey" type="button" aria-label="Typecast API 키 표시 전환">보기</button>
+          </div>
+        </label>
         <div class="security-note">
           <strong>안전하게 쓰기</strong>
-          <span>AI Studio에서 Gemini API로 제한하고, 가능하면 이 GitHub Pages 주소만 허용하세요. 공용 컴퓨터에서는 저장하지 마세요.</span>
+          <span>Gemini 키는 API와 사이트 제한을 적용하고 Typecast 키는 개인용으로만 사용하세요. 공용 컴퓨터에서는 저장하지 마세요.</span>
         </div>
         <div class="dialog-actions">
-          <button class="button button-danger" id="clearKey" type="button">저장된 키 지우기</button>
+          <button class="button button-danger" id="clearKey" type="button">저장된 키 모두 지우기</button>
           <button class="button button-primary" id="saveKey" value="default">이 기기에 저장</button>
         </div>
       </form>
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
-    <script type="module" src="./js/app.js?v=6"></script>
+    <script type="module" src="./js/app.js?v=7"></script>
   </body>
 </html>

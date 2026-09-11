@@ -71,7 +71,8 @@ export function buildLockedPrompt(userPrompt, outfit) {
     "IDENTITY LOCK: Preserve the raccoon's large round brown eyes, soft smiling face, gray-and-cream fur markings, rounded oversized head, compact body, short limbs, fluffy ringed tail, and soft premium 3D storybook rendering. The raccoon is always anthropomorphic and moves upright on two legs like a tiny office employee. Never make it quadrupedal, photoreal wildlife, or human-proportioned.",
     `OUTFIT LOCK: ${outfit}`,
     `SCENE: ${userPrompt.trim()}`,
-    "DIRECTION: One simple readable action, natural tiny gestures, gentle cinematic camera movement, warm expressive acting, consistent face and outfit from first frame to last. No morphing, no duplicate character, no captions, no logos, no spoken dialogue or voices. Ambient office sounds and subtle sound effects only.",
+    "DIRECTION: One simple readable action, natural tiny gestures, gentle cinematic camera movement, warm expressive acting, consistent face and outfit from first frame to last. No morphing, no duplicate character, no captions, no logos.",
+    "AUDIO LOCK: No dialogue, no voices, no music, and no prominent sound effects. The clip must be nearly silent, with only extremely faint room tone or tiny background ambience at a barely audible level so a separate voiceover can be added later.",
   ].join("\n\n");
 }
 
